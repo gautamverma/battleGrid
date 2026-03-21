@@ -1,0 +1,8 @@
+[gd_scene load_steps=2 format=3 uid="uid://shipsceneuid1234"]
+
+[ext_resource type="Script" path="res://scripts/ShipVisuals.gd" id="1_ship"]
+
+[node name="Ship" type="ColorRect"]
+offset_right = 120.0
+offset_bottom = 40.0
+script = ExtResource("1_ship")
