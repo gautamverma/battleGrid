@@ -1,9 +1,15 @@
 package com.antigravity.battleship.ui
 
+import android.app.Application
 import androidx.compose.runtime.*
-import androidx.lifecycle.ViewModel
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.antigravity.battleship.data.AppDatabase
+import com.antigravity.battleship.data.ScoreEntity
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
@@ -40,10 +46,13 @@ data class BattleLogEntry(
     val isCritical: Boolean = false
 )
 
-class GameViewModel : ViewModel() {
+class GameViewModel(application: Application) : AndroidViewModel(application) {
+    private val scoreDao = AppDatabase.getInstance(application).scoreDao()
+
     var currentPhase by mutableStateOf(GamePhase.MAIN_MENU)
     var isSinglePlayer by mutableStateOf(false)
     var statusText by mutableStateOf("Welcome to Grid Strike")
+    var isHorizontal by mutableStateOf(true)
     
     var playerGrid by mutableStateOf(Array(10) { Array(10) { CellState.EMPTY } })
     var opponentGrid by mutableStateOf(Array(10) { Array(10) { CellState.EMPTY } })
@@ -74,8 +83,10 @@ class GameViewModel : ViewModel() {
     
     val battleLog = mutableStateListOf<BattleLogEntry>()
 
-    private val _highScores = mutableStateListOf<ScoreRecord>()
-    val highScores: List<ScoreRecord> get() = _highScores.sortedBy { it.missilesUsed }
+    private val _highScores = scoreDao.getAllScores()
+        .map { entities -> entities.map { ScoreRecord(it.missilesUsed, it.date) } }
+        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+    val highScores: List<ScoreRecord> get() = _highScores.value
 
     private val timeFormatter = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
 
@@ -122,14 +133,20 @@ class GameViewModel : ViewModel() {
         return true
     }
 
+    fun toggleRotation() {
+        isHorizontal = !isHorizontal
+    }
+
     fun placePlayerShip(x: Int, y: Int) {
         val ship = playerShips.firstOrNull { it.coordinates.isEmpty() } ?: return
-        if (canPlaceShip(playerGrid, x, y, ship.size, true)) {
+        if (canPlaceShip(playerGrid, x, y, ship.size, isHorizontal)) {
             val coords = mutableListOf<Pair<Int, Int>>()
             val newGrid = playerGrid.map { it.copyOf() }.toTypedArray()
             for (i in 0 until ship.size) {
-                newGrid[x + i][y] = CellState.SHIP
-                coords.add(x + i to y)
+                val cx = if (isHorizontal) x + i else x
+                val cy = if (isHorizontal) y else y + i
+                newGrid[cx][cy] = CellState.SHIP
+                coords.add(cx to cy)
             }
             ship.coordinates = coords
             playerGrid = newGrid
@@ -255,7 +272,9 @@ class GameViewModel : ViewModel() {
     }
 
     private fun saveScore(missiles: Int) {
-        _highScores.add(ScoreRecord(missiles))
+        viewModelScope.launch {
+            scoreDao.insert(ScoreEntity(missilesUsed = missiles))
+        }
     }
 
     fun restart() {

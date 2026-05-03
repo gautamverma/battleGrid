@@ -139,7 +139,9 @@ fun GameScreen(viewModel: GameViewModel = viewModel()) {
                         )
                         GamePhase.PLACEMENT -> PlacementScreen(
                             grid = viewModel.playerGrid,
+                            isHorizontal = viewModel.isHorizontal,
                             onCellClick = { x, y -> viewModel.placePlayerShip(x, y) },
+                            onRotate = { viewModel.toggleRotation() },
                             onReady = { viewModel.onReady() }
                         )
                         GamePhase.COMBAT -> CombatScreen(
@@ -332,7 +334,13 @@ fun SettingsScreen(soundManager: SoundManager, onBack: () -> Unit) {
 }
 
 @Composable
-fun PlacementScreen(grid: Array<Array<CellState>>, onCellClick: (Int, Int) -> Unit, onReady: () -> Unit) {
+fun PlacementScreen(
+    grid: Array<Array<CellState>>,
+    isHorizontal: Boolean,
+    onCellClick: (Int, Int) -> Unit,
+    onRotate: () -> Unit,
+    onReady: () -> Unit
+) {
     Column(
         modifier = Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally
@@ -346,8 +354,24 @@ fun PlacementScreen(grid: Array<Array<CellState>>, onCellClick: (Int, Int) -> Un
             BattleshipGrid(grid = grid, isInteractable = true, showShips = true, onCellClick = onCellClick)
         }
         
-        Spacer(modifier = Modifier.height(32.dp))
-        GameButton(text = "INITIATE COMBAT", onClick = onReady)
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            GameButton(
+                text = if (isHorizontal) "⟷ HORIZONTAL" else "⟶ VERTICAL",
+                onClick = onRotate,
+                modifier = Modifier.weight(1f),
+                color = NeonPink
+            )
+            GameButton(
+                text = "INITIATE COMBAT",
+                onClick = onReady,
+                modifier = Modifier.weight(1f)
+            )
+        }
     }
 }
 
